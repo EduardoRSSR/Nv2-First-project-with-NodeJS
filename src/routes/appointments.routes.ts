@@ -1,37 +1,36 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Router } from 'express';
+import { getCustomRepository } from 'typeorm';
 import { parseISO } from 'date-fns';
 
 import AppointmentsRepository from '../repositories/AppointmentsRepository';
 import CreateAppointmentService from '../services/CreateAppointmentsService';
 
-const appointmentsRouter = Router();
-const appointmentsRepository = new AppointmentsRepository();
+import ensureAuthenticated from '../middlewares/ensureAuthenticated';
 
-appointmentsRouter.get('/', (request, response) => {
-  const appointments = appointmentsRepository.all();
+const appointmentsRouter = Router();
+
+appointmentsRouter.use(ensureAuthenticated);
+
+appointmentsRouter.get('/', async (request, response) => {
+  const appointmentsRepository = getCustomRepository(AppointmentsRepository);
+  const appointments = await appointmentsRepository.find();
 
   return response.json(appointments);
 });
 
 // http://localhost:3333/appointments -> será repassado para a rota abaixo
-appointmentsRouter.post('/', (request, response) => {
-  try {
-    const { provider, date } = request.body;
+appointmentsRouter.post('/', async (request, response) => {
+  // eslint-disable-next-line camelcase
+  const { provider_id, date } = request.body;
 
-    const parsedDate = parseISO(date);
+  const parsedDate = parseISO(date);
 
-    const createAppointment = new CreateAppointmentService(
-      appointmentsRepository,
-    );
+  const createAppointment = new CreateAppointmentService();
 
-    const appointment = createAppointment.execute({
-      date: parsedDate,
-      provider,
-    });
-
-    return response.json(appointment);
-  } catch (err) {
-    return response.status(400).json({ error: err.message });
-  }
+  const appointment = await createAppointment.execute({
+    date: parsedDate,
+    provider_id,
+  });
 });
 export default appointmentsRouter;
